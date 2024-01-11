@@ -376,8 +376,8 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
                     onTap: () async {
                       _showModal(context);
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.all(1.0),
+                    child: const Padding(
+                      padding: EdgeInsets.all(1.0),
                       child: SizedBox(
                         width: 370,
                         height: 48,

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -6,14 +7,15 @@ import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:panakj_app/core/colors/colors.dart';
 import 'package:panakj_app/core/constant/constants.dart';
 import 'package:panakj_app/core/db/adapters/bank_adapter/bank_adapter.dart';
+import 'package:panakj_app/ui/view_model/search_bank/get_bank_bloc.dart';
 import 'package:panakj_app/ui/view_model/selctedbank/selctedbank_bloc.dart';
 
-class BankBottomSheetCopy extends StatefulWidget {
+class BankBottomSheetCopy2 extends StatefulWidget {
   final bottomSheetheight;
   final String title;
   final hintText;
 
-  BankBottomSheetCopy({
+  BankBottomSheetCopy2({
     Key? key,
     required this.title,
     this.bottomSheetheight = 0.9,
@@ -21,66 +23,81 @@ class BankBottomSheetCopy extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BankBottomSheetCopy> createState() => _BankBottomSheetCopyState();
+  State<BankBottomSheetCopy2> createState() => _BankBottomSheetCopy2State();
 }
 
-class _BankBottomSheetCopyState extends State<BankBottomSheetCopy> {
+class _BankBottomSheetCopy2State extends State<BankBottomSheetCopy2> {
   late Box<BankDB> bankBox;
   List<String> bankNames = [];
   List<String> displayedBanks = [];
-  late StreamController<bool> _updateStreamController;
+  List<String> newDisplayedBanks = [];
+  late StreamController<bool>? _updateStreamController;
   late TextEditingController textController;
 
   @override
   void initState() {
     super.initState();
-    _updateStreamController = StreamController<bool>();
     textController = TextEditingController();
     setupBankBox();
   }
 
   @override
   void dispose() {
-    _updateStreamController.close();
+    _updateStreamController?.close();
     super.dispose();
   }
 
+
+
   Future<void> setupBankBox() async {
-    bankBox = await Hive.openBox<BankDB>('bankBox');
-    List<int> keys = bankBox.keys.cast<int>().toList();
+  bankBox = await Hive.openBox<BankDB>('bankBox');
 
-    if (keys.isEmpty) {
-      print('No banks found in bankBox');
-      return;
-    }
+  // Initialize displayedBanks with the initial values from Hive
+  displayedBanks = bankBox.values.map((bank) => bank.name).toList();
 
-    bankNames = keys.map((key) {
-      BankDB bank = bankBox.get(key)!;
-      return bank.name;
-    }).toList();
-
+  // Add a listener to update the displayed banks when data changes in Hive
+  bankBox.listenable().addListener(() {
     if (mounted) {
       setState(() {
-        displayedBanks = List.from(bankNames);
+        displayedBanks = bankBox.values.map((bank) => bank.name).toList();
       });
     }
-  }
+  });
+
+  // Listen to changes from the GetBankBloc
+  // ignore: use_build_context_synchronously
+  BlocProvider.of<GetBankBloc>(context).stream.listen((state) {
+    if (state.bank.data!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          bankBox;
+          displayedBanks;
+        });
+      }
+    }
+  });
+
+  // Fetch initial data
+  // BlocProvider.of<GetBankBloc>(context).add(GetBankList(bankQuery: ""));
+}
 
 
+  void _showModal(context) {
+    StreamSubscription<bool>? subscription;
 
-void _showModal(context) {
-  StreamSubscription<bool>? subscription;
+    showModalBottomSheet(
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(15.0)),
+      ),
+      context: context,
+      builder: (context) {
+        // Create a new StreamController instance
+        _updateStreamController = StreamController<bool>();
 
-  showModalBottomSheet(
-    isScrollControlled: true,
-    shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(15.0)),
-    ),
-    context: context,
-    builder: (context) {
-      return StatefulBuilder(
-        builder: (BuildContext context, StateSetter setState) {
-          return DraggableScrollableSheet(
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return DraggableScrollableSheet(
               initialChildSize: 0.5,
               minChildSize: 0.2,
               maxChildSize: widget.bottomSheetheight,
@@ -131,6 +148,9 @@ void _showModal(context) {
                             child: TextField(
                               onChanged: (searchTerm) {
                                 _searchFromHive(searchTerm);
+                                BlocProvider.of<GetBankBloc>(context).add(
+                                    GetBankEvent.searchBankList(
+                                        bankQuery: searchTerm));
                               },
                               style: kCardContentStyle,
                               controller: textController,
@@ -152,8 +172,10 @@ void _showModal(context) {
                                     ),
                                     color: const Color(0xFF1F91E7),
                                     onPressed: () {
-                                      textController.clear();
-                                      _searchFromHive('');
+                                      setState(() {
+                                        textController.clear();
+                                        _searchFromHive('');
+                                      });
                                     },
                                   ),
                                 ),
@@ -164,7 +186,7 @@ void _showModal(context) {
                       ),
                     ),
                     StreamBuilder<bool>(
-                      stream: _updateStreamController.stream,
+                      stream: _updateStreamController?.stream,
                       builder: (context, snapshot) {
                         return Expanded(
                           child: ListView.separated(
@@ -172,15 +194,44 @@ void _showModal(context) {
                             itemCount: displayedBanks.length,
                             itemBuilder: (context, index) {
                               return InkWell(
-                                child: showBottomSheetData(
-                                    index, displayedBanks),
+                                child:
+                                    showBottomSheetData(index, displayedBanks),
                                 onTap: () {
-                                  BlocProvider.of<SelctedbankBloc>(context)
-                                      .add(
-                                    SelctedbankEvent.selectedBank(
-                                      selectedBank: index,
-                                    ),
-                                  );
+                                  if (newDisplayedBanks.isNotEmpty &&
+                                      index < newDisplayedBanks.length) {
+                                    final selectedBankName =
+                                        newDisplayedBanks[index];
+                                    final selectedBankObject = bankBox.values
+                                        .firstWhere((bank) =>
+                                            bank.name == selectedBankName);
+
+                                    textController.text =
+                                        selectedBankObject.name;
+
+                                    BlocProvider.of<SelctedbankBloc>(context)
+                                        .add(
+                                      SelctedbankEvent.selectedBank(
+                                        selectedBank: selectedBankObject.id,
+                                      ),
+                                    );
+                                  } else if (index < displayedBanks.length) {
+                                    final selectedBankName =
+                                        displayedBanks[index];
+                                    final selectedBankObject = bankBox.values
+                                        .firstWhere((bank) =>
+                                            bank.name == selectedBankName);
+
+                                    textController.text =
+                                        selectedBankObject.name;
+
+                                    BlocProvider.of<SelctedbankBloc>(context)
+                                        .add(
+                                      SelctedbankEvent.selectedBank(
+                                        selectedBank: selectedBankObject.id,
+                                      ),
+                                    );
+                                  }
+
                                   Navigator.of(context).pop();
                                 },
                               );
@@ -196,17 +247,17 @@ void _showModal(context) {
                 );
               },
             );
-        },
-      );
-    },
-  );
+          },
+        );
+      },
+    );
 
-  // Dispose the subscription when the modal is closed
-  Navigator.of(context).popUntil((route) {
-    subscription?.cancel();
-    return true;
-  });
-}
+    // Dispose the subscription when the modal is closed
+    Navigator.of(context).popUntil((route) {
+      subscription?.cancel();
+      return true;
+    });
+  }
 
   void _searchFromHive(String searchTerm) {
     if (mounted) {
@@ -215,13 +266,21 @@ void _showModal(context) {
   }
 
   void _updateDisplayedBanks(String searchTerm) {
-    _updateStreamController.add(true);
-    setState(() {
-      displayedBanks = bankNames
-          .where((bankName) =>
-              bankName.toLowerCase().contains(searchTerm.toLowerCase()))
-          .toList();
-    });
+    final List<String> updatedDisplayedBanks = bankBox.values
+        .where((bank) =>
+            bank.name.toLowerCase().contains(searchTerm.toLowerCase()))
+        .map((bank) => bank.name)
+        .toList();
+
+    if (!listEquals(displayedBanks, updatedDisplayedBanks)) {
+      // Only update the state if there are changes
+      _updateStreamController?.add(true);
+      setState(() {
+        displayedBanks = updatedDisplayedBanks;
+        newDisplayedBanks =
+            updatedDisplayedBanks; // Update newDisplayedBanks as well
+      });
+    }
   }
 
   Widget showBottomSheetData(int index, List<String> data) {
@@ -266,54 +325,58 @@ void _showModal(context) {
   Widget build(BuildContext context) {
     final Devicewidth = MediaQuery.of(context).size.width;
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Stack(
+      child: BlocBuilder<SelctedbankBloc, SelctedbankState>(
+        builder: (context, state) {
+          return Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Container(
-                width: Devicewidth,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(
-                    color: const Color.fromARGB(255, 136, 133, 133),
-                    width: 1.0,
+              Stack(
+                children: [
+                  Container(
+                    width: Devicewidth,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: const Color.fromARGB(255, 136, 133, 133),
+                        width: 1.0,
+                      ),
+                      color: const Color.fromARGB(255, 255, 255, 255),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.only(left: 14),
+                      child: TextFormField(
+                        style: kCardContentStyle,
+                        readOnly: true,
+                        maxLines: 1,
+                        controller: textController,
+                        onTap: () async {
+                          _showModal(context);
+                        },
+                        decoration: const InputDecoration(
+                          border: InputBorder.none,
+                          suffixIcon:
+                              Icon(Icons.arrow_drop_down, color: Colors.black),
+                        ),
+                      ),
+                    ),
                   ),
-                  color: const Color.fromARGB(255, 255, 255, 255),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.only(left: 14),
-                  child: TextFormField(
-                    style: kCardContentStyle,
-                    readOnly: true,
-                    maxLines: 1,
-                    controller: textController,
+                  InkWell(
                     onTap: () async {
                       _showModal(context);
                     },
-                    decoration: const InputDecoration(
-                      border: InputBorder.none,
-                      suffixIcon:
-                          Icon(Icons.arrow_drop_down, color: Colors.black),
+                    child: const Padding(
+                      padding: EdgeInsets.all(1.0),
+                      child: SizedBox(
+                        width: 370,
+                        height: 48,
+                      ),
                     ),
                   ),
-                ),
-              ),
-              InkWell(
-                onTap: () async {
-                  _showModal(context);
-                },
-                child: const Padding(
-                  padding: EdgeInsets.all(1.0),
-                  child: SizedBox(
-                    width: 370,
-                    height: 48,
-                  ),
-                ),
+                ],
               ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }

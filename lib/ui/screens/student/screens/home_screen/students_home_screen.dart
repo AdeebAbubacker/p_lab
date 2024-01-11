@@ -132,11 +132,14 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
                                 id: id,
                                 name: name as String,
                                 deletedAt: 'null'));
+
+                        bankBox.delete(10);
+                        bankBox.delete(20);
+                        bankBox.delete(30);
+                        bankBox.delete(40);
+                        bankBox.delete(50);
                       }),
-                      occupationData!.forEach((id, name) {
-                        print('name');
-                        print('id');
-                      }),
+
                       occupationData!.forEach((id, name) {
                         occupationBox.put(
                             id as int,
