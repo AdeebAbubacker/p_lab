@@ -1,5 +1,4 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -7,6 +6,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:panakj_app/core/db/adapters/bank_adapter/bank_adapter.dart';
 import 'package:panakj_app/core/db/adapters/course_adapter/course_adapter.dart';
 import 'package:panakj_app/core/db/adapters/occupation_adapter/occupation_adapter.dart';
+import 'package:panakj_app/core/db/adapters/qualification_adapter/qualification_adapter.dart';
 import 'package:panakj_app/core/db/adapters/school_adapter/school_adapter.dart';
 import 'package:panakj_app/core/db/adapters/validation_academics/validation_academicadapter.dart';
 import 'package:panakj_app/core/db/adapters/validation_familyscreen/validation_familyscreenadapter.dart';
@@ -15,6 +15,7 @@ import 'package:panakj_app/core/db/adapters/validation_residential/validation_re
 import 'package:panakj_app/core/db/boxes/bank_box.dart';
 import 'package:panakj_app/core/db/boxes/course_box.dart';
 import 'package:panakj_app/core/db/boxes/occupation_box.dart';
+import 'package:panakj_app/core/db/boxes/qualification_box.dart';
 import 'package:panakj_app/core/db/boxes/school_box.dart';
 import 'package:panakj_app/core/db/boxes/validation_academicBox.dart';
 import 'package:panakj_app/core/db/boxes/validation_familyBox.dart';
@@ -48,6 +49,8 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
 
   var occupations;
 
+  var qualifications;
+
   Map<int?, String?>? bankData;
 
   Map<int?, String?>? courseData;
@@ -56,26 +59,36 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
 
   Map<int?, String?>? occupationData;
 
+  Map<int?, String?>? qualificationData;
+
   @override
   void initState() {
     // TODO: implement initState
-    validationOfScreens();
+    initBoxes();
     super.initState();
   }
 
-  void validationOfScreens() async {
-    validationPersonalInfoBox =
-        await Hive.openBox<ValidationPersonalInfoScreenDB>(
-            'validationPersonalInfoBox');
-    validationFamilyBox =
-        await Hive.openBox<ValidationFamilyScreenDB>('validationFamilyBox');
-    validationAcademicBox =
-        await Hive.openBox<ValidationAcademicScreenDB>('validationAcademicBox');
-    validationResidentailBox =
-        await Hive.openBox<ValidationResidentailScreenDB>(
-            'validationResidentailBox');
+  Future<void> initBoxes() async {
+    try {
+      validationPersonalInfoBox =
+          await Hive.openBox<ValidationPersonalInfoScreenDB>(
+              'validationPersonalInfoBox');
+      validationFamilyBox =
+          await Hive.openBox<ValidationFamilyScreenDB>('validationFamilyBox');
+      validationAcademicBox = await Hive.openBox<ValidationAcademicScreenDB>(
+          'validationAcademicBox');
+      validationResidentailBox =
+          await Hive.openBox<ValidationResidentailScreenDB>(
+              'validationResidentailBox');
 
-    setState(() {});
+      // Add other initializations if needed
+
+      // Ensure the state is updated after the boxes are initialized
+      setState(() {});
+    } catch (e) {
+      // Handle errors opening boxes, print or log the error
+      print('Error opening Hive boxes: $e');
+    }
   }
 
   @override
@@ -115,6 +128,18 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
                             .map((e) => e.name)
                             .toList(),
                       ),
+
+                      qualificationData = Map.fromIterables(
+                        success!.data!.qualifications!
+                            .toList()
+                            .map((e) => e.id)
+                            .toList(),
+                        success.data!.qualifications!
+                            .toList()
+                            .map((e) => e.name)
+                            .toList(),
+                      ),
+                      print('occupation data from api ${occupationData}'),
                       courseData = Map.fromIterables(
                           success.data!.courses!.toList().map((e) => e.id),
                           success.data!.courses!.toList().map((e) => e.name)),
@@ -124,6 +149,9 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
                       bankBox = Hive.box<BankDB>('bankBox'),
                       courseBox = Hive.box<CourseDB>('courseBox'),
                       schoolBox = Hive.box<SchoolDB>('schoolBox'),
+                      occupationBox = Hive.box<OccupationDB>('occupationBox'),
+                      qualificationBox =
+                          Hive.box<qualificationDB>('qualificationBox'),
                       //   bankBox.clear(),
                       bankData!.forEach((id, name) {
                         bankBox.put(
@@ -132,12 +160,17 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
                                 id: id,
                                 name: name as String,
                                 deletedAt: 'null'));
-
-                        bankBox.delete(10);
-                        bankBox.delete(20);
-                        bankBox.delete(30);
-                        bankBox.delete(40);
-                        bankBox.delete(50);
+                       
+                      }),
+                      qualificationData!.forEach((id, name) {
+                        qualificationBox.put(
+                            id as int,
+                            qualificationDB(
+                                id: id,
+                                name: name as String,
+                                deleted_at: '',
+                                status: true));
+                     
                       }),
 
                       occupationData!.forEach((id, name) {
@@ -146,7 +179,9 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
                             OccupationDB(
                                 id: id,
                                 name: name as String,
-                                deletedAt: 'null'));
+                                active: 1,
+                                deleted_at: 'null'));
+                       
                       }),
                       courseData!.forEach((id, name) {
                         courseBox.put(
@@ -155,6 +190,7 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
                               id: id,
                               name: name as String,
                             ));
+                       
                       }),
                       schoolData!.forEach((id, name) {
                         schoolBox.put(
@@ -163,28 +199,34 @@ class _StudentsHomeScreenState extends State<StudentsHomeScreen> {
                               id: id,
                               name: name as String,
                             ));
+                       
                       }),
 
                       for (var i = 0; i < bankBox.length; i++)
                         {
                           bank = bankBox.getAt(i),
-                          print(bank.toString()),
+                          print(
+                              'stored bank in db is ----------- ${bank.toString()}'),
                         },
 
                       for (var i = 0; i < courseBox.length; i++)
                         {
                           course = courseBox.getAt(i),
-                          print(course.toString()),
+                          print(
+                              'stored course in db is ----------- ${course.toString()}'),
                         },
                       for (var i = 0; i < schoolBox.length; i++)
                         {
                           schools = schoolBox.getAt(i),
-                          print(schools.toString()),
+                          print(
+                              'stored schools in db is ----------- ${schools.toString()}'),
                         },
+
                       for (var i = 0; i < occupationBox.length; i++)
                         {
                           occupations = occupationBox.getAt(i),
-                          print(occupations.toString()),
+                          print(
+                              'stored occupation in db is ----------- ${occupations.toString()}'),
                         },
                     }),
           );

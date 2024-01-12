@@ -1,22 +1,21 @@
 import 'dart:async';
-
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:panakj_app/core/colors/colors.dart';
 import 'package:panakj_app/core/constant/constants.dart';
 import 'package:panakj_app/core/db/adapters/bank_adapter/bank_adapter.dart';
 import 'package:panakj_app/ui/view_model/search_bank/get_bank_bloc.dart';
 import 'package:panakj_app/ui/view_model/selctedbank/selctedbank_bloc.dart';
 
-
-class bankBottomSheet extends StatefulWidget {
+class BankBottomSheet extends StatefulWidget {
   final bottomSheetheight;
   final String title;
   final hintText;
-  List<String> listofData = [];
-  bankBottomSheet({
+
+  BankBottomSheet({
     Key? key,
     required this.title,
     this.bottomSheetheight = 0.9,
@@ -24,55 +23,68 @@ class bankBottomSheet extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<bankBottomSheet> createState() => _bankBottomSheetState();
+  State<BankBottomSheet> createState() => _BankBottomSheetState();
 }
 
-class _bankBottomSheetState extends State<bankBottomSheet> {
+class _BankBottomSheetState extends State<BankBottomSheet> {
   late Box<BankDB> bankBox;
   List<String> bankNames = [];
-  List<String> searchResults = [];
+  List<String> displayedBanks = [];
+  List<String> newDisplayedBanks = [];
+  late StreamController<bool>? _updateStreamController;
+  late TextEditingController textController;
 
   @override
   void initState() {
     super.initState();
+    textController = TextEditingController();
     setupBankBox();
-    textController.clear();
   }
+
+  @override
+  void dispose() {
+    _updateStreamController?.close();
+    super.dispose();
+  }
+
+
 
   Future<void> setupBankBox() async {
-    bankBox = await Hive.openBox<BankDB>('bankBox');
+  bankBox = await Hive.openBox<BankDB>('bankBox');
 
-    if (!bankBox.isOpen) {
-      print('bankBox is not open');
-      return;
-    }
+  // Initialize displayedBanks with the initial values from Hive
+  displayedBanks = bankBox.values.map((bank) => bank.name).toList();
 
-    List<int> keys = bankBox.keys.cast<int>().toList();
-
-    print('All keys in bankBox: $keys');
-
-    if (keys.isEmpty) {
-      print('No banks found in bankBox');
-      return;
-    }
-
-    bankNames = keys.map((key) {
-      BankDB bank = bankBox.get(key)!;
-      return bank.name;
-    }).toList();
-
-    print('Bank names: $bankNames');
-
+  // Add a listener to update the displayed banks when data changes in Hive
+  bankBox.listenable().addListener(() {
     if (mounted) {
-      setState(() {});
+      setState(() {
+        displayedBanks = bankBox.values.map((bank) => bank.name).toList();
+      });
     }
-  }
+  });
 
-  final List<String> emptyList = [];
-  final TextEditingController textController = TextEditingController();
-  bool shouldClearTextController = false;
+  // Listen to changes from the GetBankBloc
+  // ignore: use_build_context_synchronously
+  BlocProvider.of<GetBankBloc>(context).stream.listen((state) {
+    if (state.bank.data!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          bankBox;
+          displayedBanks;
+        });
+      }
+    }
+  });
+
+  // Fetch initial data
+  // BlocProvider.of<GetBankBloc>(context).add(GetBankList(bankQuery: ""));
+}
+
 
   void _showModal(context) {
+    StreamSubscription<bool>? subscription;
+
     showModalBottomSheet(
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -80,6 +92,9 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
       ),
       context: context,
       builder: (context) {
+        // Create a new StreamController instance
+        _updateStreamController = StreamController<bool>();
+
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
             return DraggableScrollableSheet(
@@ -115,7 +130,7 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
                               Icons.close,
                               color: kredColor,
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -131,11 +146,11 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
                         children: [
                           Expanded(
                             child: TextField(
-                              onChanged: (textController) {
+                              onChanged: (searchTerm) {
+                                _searchFromHive(searchTerm);
                                 BlocProvider.of<GetBankBloc>(context).add(
-                                  GetBankEvent.searchBankList(
-                                      bankQuery: textController),
-                                );
+                                    GetBankEvent.searchBankList(
+                                        bankQuery: searchTerm));
                               },
                               style: kCardContentStyle,
                               controller: textController,
@@ -157,18 +172,10 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
                                     ),
                                     color: const Color(0xFF1F91E7),
                                     onPressed: () {
-                                      textController.clear();
-
-                                      // Use the stored search results when clearing the search
                                       setState(() {
-                                        searchResults.clear();
+                                        textController.clear();
+                                        _searchFromHive('');
                                       });
-
-                                      // Trigger a new search event with an empty query
-                                      BlocProvider.of<GetBankBloc>(context).add(
-                                        const GetBankEvent.searchBankList(
-                                            bankQuery: ''),
-                                      );
                                     },
                                   ),
                                 ),
@@ -178,97 +185,64 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
                         ],
                       ),
                     ),
-                    BlocBuilder<GetBankBloc, GetBankState>(
-                      builder: (context, state) {
-                        if (state.isLoading) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        } else if (state.isError) {
-                          return const Center(
-                            child: Text('Error fetching data'),
-                          );
-                        } else {
-                          return Expanded(
-                            child: ListView.separated(
-                              controller: scrollController,
-                              // when textcontroller is empty we look for items in hive , else we take data from api
-                              itemCount: textController.text.isEmpty
-                                  ? bankBox.length
-                                  : (state.bank.data != null &&
-                                          state.bank.data!.isNotEmpty)
-                                      ? state.bank.data!.length
-                                      : 0,
-                              separatorBuilder: (context, index) {
-                                return const Divider();
-                              },
-                              itemBuilder: (context, index) {
-                                return InkWell(
-                                  child: showBottomSheetData(
-                                      index, state.bank.data ?? emptyList),
-                                  onTap: () {
-                                    if (state.bank != null) {
-                                      final bankData = state.bank!.data ?? [];
-                                      if (bankData.isNotEmpty &&
-                                          index < bankData.length) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.text =
-                                                bankData[index].name ?? '';
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                        BlocProvider.of<SelctedbankBloc>(
-                                                context)
-                                            .add(
-                                          SelctedbankEvent.selectedBank(
-                                            selectedBank:
-                                                bankData[index].id as int,
-                                          ),
-                                        );
-                                      } else if (bankNames.isNotEmpty &&
-                                          index < bankNames.length) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.text =
-                                                bankNames[index] ?? '';
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                        BlocProvider.of<SelctedbankBloc>(
-                                                context)
-                                            .add(
-                                          SelctedbankEvent.selectedBank(
-                                            selectedBank:
-                                                bankBox.getAt(index)!.id,
-                                          ),
-                                        );
-                                      }
+                    StreamBuilder<bool>(
+                      stream: _updateStreamController?.stream,
+                      builder: (context, snapshot) {
+                        return Expanded(
+                          child: ListView.separated(
+                            controller: scrollController,
+                            itemCount: displayedBanks.length,
+                            itemBuilder: (context, index) {
+                              return InkWell(
+                                child:
+                                    showBottomSheetData(index, displayedBanks),
+                                onTap: () {
+                                  if (newDisplayedBanks.isNotEmpty &&
+                                      index < newDisplayedBanks.length) {
+                                    final selectedBankName =
+                                        newDisplayedBanks[index];
+                                    final selectedBankObject = bankBox.values
+                                        .firstWhere((bank) =>
+                                            bank.name == selectedBankName);
 
-                                      // Additional logic if needed
-                                      print(
-                                          'Selected item in bottom sheet: $index');
+                                    textController.text =
+                                        selectedBankObject.name;
 
-                                      // Clear the textController only if it was a search result
-                                      if (shouldClearTextController) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.clear();
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                      }
+                                    BlocProvider.of<SelctedbankBloc>(context)
+                                        .add(
+                                      SelctedbankEvent.selectedBank(
+                                        selectedBank: selectedBankObject.id,
+                                      ),
+                                    );
+                                  } else if (index < displayedBanks.length) {
+                                    final selectedBankName =
+                                        displayedBanks[index];
+                                    final selectedBankObject = bankBox.values
+                                        .firstWhere((bank) =>
+                                            bank.name == selectedBankName);
 
-                                      Navigator.of(context).pop();
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                          );
-                        }
+                                    textController.text =
+                                        selectedBankObject.name;
+
+                                    BlocProvider.of<SelctedbankBloc>(context)
+                                        .add(
+                                      SelctedbankEvent.selectedBank(
+                                        selectedBank: selectedBankObject.id,
+                                      ),
+                                    );
+                                  }
+
+                                  Navigator.of(context).pop();
+                                },
+                              );
+                            },
+                            separatorBuilder: (context, index) {
+                              return const Divider();
+                            },
+                          ),
+                        );
                       },
-                    )
+                    ),
                   ],
                 );
               },
@@ -277,14 +251,41 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
         );
       },
     );
+
+    // Dispose the subscription when the modal is closed
+    Navigator.of(context).popUntil((route) {
+      subscription?.cancel();
+      return true;
+    });
   }
 
-  Widget showBottomSheetData(int index, List data) {
+  void _searchFromHive(String searchTerm) {
+    if (mounted) {
+      _updateDisplayedBanks(searchTerm);
+    }
+  }
+
+  void _updateDisplayedBanks(String searchTerm) {
+    final List<String> updatedDisplayedBanks = bankBox.values
+        .where((bank) =>
+            bank.name.toLowerCase().contains(searchTerm.toLowerCase()))
+        .map((bank) => bank.name)
+        .toList();
+
+    if (!listEquals(displayedBanks, updatedDisplayedBanks)) {
+      // Only update the state if there are changes
+      _updateStreamController?.add(true);
+      setState(() {
+        displayedBanks = updatedDisplayedBanks;
+        newDisplayedBanks =
+            updatedDisplayedBanks; // Update newDisplayedBanks as well
+      });
+    }
+  }
+
+  Widget showBottomSheetData(int index, List<String> data) {
     final isFirstItem = index == 0;
     final isLastItem = index == data.length - 1;
-    final selectedBankName = textController.text.isEmpty
-        ? bankNames[index]
-        : (data.isNotEmpty ? data[index].name : '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,7 +301,7 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
         Container(
           margin: const EdgeInsets.only(top: 12, bottom: 10, left: 14),
           child: Text(
-            selectedBankName,
+            data[index],
             style: const TextStyle(
               color: Color.fromARGB(255, 84, 84, 84),
               fontSize: 14,
@@ -318,18 +319,6 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
           ),
       ],
     );
-  }
-
-  List<String> _buildSearchList(String userSearchTerm) {
-    searchResults = [];
-
-    for (int i = 0; i < emptyList.length; i++) {
-      String name = emptyList[i];
-      if (name.toLowerCase().contains(userSearchTerm.toLowerCase())) {
-        searchResults.add(emptyList[i]);
-      }
-    }
-    return searchResults;
   }
 
   @override
@@ -362,7 +351,6 @@ class _bankBottomSheetState extends State<bankBottomSheet> {
                         controller: textController,
                         onTap: () async {
                           _showModal(context);
-                          WidgetsBinding.instance!.addPostFrameCallback((_) {});
                         },
                         decoration: const InputDecoration(
                           border: InputBorder.none,

@@ -2,8 +2,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:panakj_app/core/model/failure/mainfailure.dart';
 import 'package:panakj_app/core/model/occupation_data/occupation_data.dart';
-import 'package:panakj_app/core/model/search_bank/search_bank.dart';
-import 'package:panakj_app/core/constant/api.dart';
+
 
 // lib\core/constant/api.dart
 
@@ -13,7 +12,7 @@ class OccupationService {
 
   Future<OccupationData> getOccupation({String? search}) async {
     // final uri = Uri.parse('$baseApiUrl$getOccupationEndpoint?&search=$search');
-    final uri = Uri.parse('$baseUrl/occupation?&search=$search');
+    final uri = Uri.parse('https://ptvue.tekpeak.in/api/occupation?&search=$search');
     try {
       final response = await http.get(uri);
 

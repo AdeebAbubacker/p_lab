@@ -6,16 +6,19 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:panakj_app/core/colors/colors.dart';
 import 'package:panakj_app/core/constant/constants.dart';
-import 'package:panakj_app/core/db/adapters/bank_adapter/bank_adapter.dart';
-import 'package:panakj_app/ui/view_model/search_bank/get_bank_bloc.dart';
-import 'package:panakj_app/ui/view_model/selctedbank/selctedbank_bloc.dart';
+import 'package:panakj_app/core/db/adapters/qualification_adapter/qualification_adapter.dart';
+import 'package:panakj_app/ui/view_model/search_qualification/search_qualification_bloc.dart';
+import 'package:panakj_app/ui/view_model/selected_qualification/selected_qualification_bloc.dart';
 
-class BankBottomSheetCopy2 extends StatefulWidget {
+
+
+
+class QualificationbottomSheet extends StatefulWidget {
   final bottomSheetheight;
   final String title;
   final hintText;
 
-  BankBottomSheetCopy2({
+  QualificationbottomSheet({
     Key? key,
     required this.title,
     this.bottomSheetheight = 0.9,
@@ -23,14 +26,14 @@ class BankBottomSheetCopy2 extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<BankBottomSheetCopy2> createState() => _BankBottomSheetCopy2State();
+  State<QualificationbottomSheet> createState() => _QualificationbottomSheetState();
 }
 
-class _BankBottomSheetCopy2State extends State<BankBottomSheetCopy2> {
-  late Box<BankDB> bankBox;
-  List<String> bankNames = [];
-  List<String> displayedBanks = [];
-  List<String> newDisplayedBanks = [];
+class _QualificationbottomSheetState extends State<QualificationbottomSheet> {
+  late Box<qualificationDB> qualificationBox;
+  List<String> qualificationNames = [];
+  List<String> displayedQualifications = [];
+  List<String> newDisplayedQualifications = [];
   late StreamController<bool>? _updateStreamController;
   late TextEditingController textController;
 
@@ -38,7 +41,7 @@ class _BankBottomSheetCopy2State extends State<BankBottomSheetCopy2> {
   void initState() {
     super.initState();
     textController = TextEditingController();
-    setupBankBox();
+    setupQualificationBox();
   }
 
   @override
@@ -47,40 +50,37 @@ class _BankBottomSheetCopy2State extends State<BankBottomSheetCopy2> {
     super.dispose();
   }
 
+  Future<void> setupQualificationBox() async {
+    qualificationBox = await Hive.openBox<qualificationDB>('qualificationBox');
 
+    // Initialize displayedQualifications with the initial values from Hive
+    displayedQualifications = qualificationBox.values.map((qualification) => qualification.name).toList();
 
-  Future<void> setupBankBox() async {
-  bankBox = await Hive.openBox<BankDB>('bankBox');
-
-  // Initialize displayedBanks with the initial values from Hive
-  displayedBanks = bankBox.values.map((bank) => bank.name).toList();
-
-  // Add a listener to update the displayed banks when data changes in Hive
-  bankBox.listenable().addListener(() {
-    if (mounted) {
-      setState(() {
-        displayedBanks = bankBox.values.map((bank) => bank.name).toList();
-      });
-    }
-  });
-
-  // Listen to changes from the GetBankBloc
-  // ignore: use_build_context_synchronously
-  BlocProvider.of<GetBankBloc>(context).stream.listen((state) {
-    if (state.bank.data!.isNotEmpty) {
+    // Add a listener to update the displayed qualifications when data changes in Hive
+    qualificationBox.listenable().addListener(() {
       if (mounted) {
         setState(() {
-          bankBox;
-          displayedBanks;
+          displayedQualifications = qualificationBox.values.map((qualification) => qualification.name).toList();
         });
       }
-    }
-  });
+    });
 
-  // Fetch initial data
-  // BlocProvider.of<GetBankBloc>(context).add(GetBankList(bankQuery: ""));
-}
+    // Listen to changes from the sch
+    // ignore: use_build_context_synchronously
+    BlocProvider.of<SearchQualificationBloc>(context).stream.listen((state) {
+      if (state.qualification.data!.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            qualificationBox;
+            displayedQualifications;
+          });
+        }
+      }
+    });
 
+    // Fetch initial data
+    // BlocProvider.of<SearchSchoolBloc>(context).add(GetBankList(qualificationQuery: ""));
+  }
 
   void _showModal(context) {
     StreamSubscription<bool>? subscription;
@@ -148,9 +148,9 @@ class _BankBottomSheetCopy2State extends State<BankBottomSheetCopy2> {
                             child: TextField(
                               onChanged: (searchTerm) {
                                 _searchFromHive(searchTerm);
-                                BlocProvider.of<GetBankBloc>(context).add(
-                                    GetBankEvent.searchBankList(
-                                        bankQuery: searchTerm));
+                                BlocProvider.of<SearchQualificationBloc>(context).add(
+                                    SearchQualificationEvent.searchQualificationList(
+                                        searchQuery: searchTerm));
                               },
                               style: kCardContentStyle,
                               controller: textController,
@@ -191,44 +191,41 @@ class _BankBottomSheetCopy2State extends State<BankBottomSheetCopy2> {
                         return Expanded(
                           child: ListView.separated(
                             controller: scrollController,
-                            itemCount: displayedBanks.length,
+                            itemCount: displayedQualifications.length,
                             itemBuilder: (context, index) {
                               return InkWell(
-                                child:
-                                    showBottomSheetData(index, displayedBanks),
+                                child: showBottomSheetData(
+                                    index, displayedQualifications),
                                 onTap: () {
-                                  if (newDisplayedBanks.isNotEmpty &&
-                                      index < newDisplayedBanks.length) {
+                                  if (newDisplayedQualifications.isNotEmpty &&
+                                      index < newDisplayedQualifications.length) {
                                     final selectedBankName =
-                                        newDisplayedBanks[index];
-                                    final selectedBankObject = bankBox.values
-                                        .firstWhere((bank) =>
-                                            bank.name == selectedBankName);
+                                        newDisplayedQualifications[index];
+                                    final selectedBankObject = qualificationBox.values
+                                        .firstWhere((qualification) =>
+                                            qualification.name == selectedBankName);
 
                                     textController.text =
                                         selectedBankObject.name;
 
-                                    BlocProvider.of<SelctedbankBloc>(context)
-                                        .add(
-                                      SelctedbankEvent.selectedBank(
-                                        selectedBank: selectedBankObject.id,
-                                      ),
-                                    );
-                                  } else if (index < displayedBanks.length) {
+                                    BlocProvider.of<SelectedQualificationBloc>(context)
+                                        .add(SelectedQualificationEvent.selectedqualification(
+                                            selectedqualification:
+                                                selectedBankObject.id));
+                                  } else if (index < displayedQualifications.length) {
                                     final selectedBankName =
-                                        displayedBanks[index];
-                                    final selectedBankObject = bankBox.values
-                                        .firstWhere((bank) =>
-                                            bank.name == selectedBankName);
+                                        displayedQualifications[index];
+                                    final selectedBankObject = qualificationBox.values
+                                        .firstWhere((qualification) =>
+                                            qualification.name == selectedBankName);
 
                                     textController.text =
                                         selectedBankObject.name;
 
-                                    BlocProvider.of<SelctedbankBloc>(context)
+                                    BlocProvider.of<SelectedQualificationBloc>(context)
                                         .add(
-                                      SelctedbankEvent.selectedBank(
-                                        selectedBank: selectedBankObject.id,
-                                      ),
+                                    
+                                      SelectedQualificationEvent.selectedqualification(selectedqualification: selectedBankObject.id)
                                     );
                                   }
 
@@ -266,19 +263,19 @@ class _BankBottomSheetCopy2State extends State<BankBottomSheetCopy2> {
   }
 
   void _updateDisplayedBanks(String searchTerm) {
-    final List<String> updatedDisplayedBanks = bankBox.values
-        .where((bank) =>
-            bank.name.toLowerCase().contains(searchTerm.toLowerCase()))
-        .map((bank) => bank.name)
+    final List<String> updatedDisplayedBanks = qualificationBox.values
+        .where((qualification) =>
+            qualification.name.toLowerCase().contains(searchTerm.toLowerCase()))
+        .map((qualification) => qualification.name)
         .toList();
 
-    if (!listEquals(displayedBanks, updatedDisplayedBanks)) {
+    if (!listEquals(displayedQualifications, updatedDisplayedBanks)) {
       // Only update the state if there are changes
       _updateStreamController?.add(true);
       setState(() {
-        displayedBanks = updatedDisplayedBanks;
-        newDisplayedBanks =
-            updatedDisplayedBanks; // Update newDisplayedBanks as well
+        displayedQualifications = updatedDisplayedBanks;
+        newDisplayedQualifications =
+            updatedDisplayedBanks; // Update newDisplayedQualifications as well
       });
     }
   }
@@ -325,7 +322,7 @@ class _BankBottomSheetCopy2State extends State<BankBottomSheetCopy2> {
   Widget build(BuildContext context) {
     final Devicewidth = MediaQuery.of(context).size.width;
     return Center(
-      child: BlocBuilder<SelctedbankBloc, SelctedbankState>(
+      child: BlocBuilder<SelectedQualificationBloc, SelectedQualificationState>(
         builder: (context, state) {
           return Column(
             mainAxisAlignment: MainAxisAlignment.center,

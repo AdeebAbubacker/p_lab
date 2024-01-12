@@ -1,24 +1,28 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:panakj_app/core/colors/colors.dart';
 import 'package:panakj_app/core/constant/constants.dart';
 import 'package:panakj_app/core/db/adapters/school_adapter/school_adapter.dart';
+
 import 'package:panakj_app/ui/view_model/search_school/search_school_bloc.dart';
+
 import 'package:panakj_app/ui/view_model/selected_school/selected_school_bloc.dart';
 
 class schoolBottomSheet extends StatefulWidget {
   final bottomSheetheight;
   final String title;
   final hintText;
-  List<String> listofData = [];
-  schoolBottomSheet(
-      {Key? key,
-      required this.title,
-      this.bottomSheetheight = 0.9,
-      this.hintText})
-      : super(key: key);
+
+  schoolBottomSheet({
+    Key? key,
+    required this.title,
+    this.bottomSheetheight = 0.9,
+    this.hintText,
+  }) : super(key: key);
 
   @override
   State<schoolBottomSheet> createState() => _schoolBottomSheetState();
@@ -27,46 +31,59 @@ class schoolBottomSheet extends StatefulWidget {
 class _schoolBottomSheetState extends State<schoolBottomSheet> {
   late Box<SchoolDB> schoolBox;
   List<String> schoolNames = [];
+  List<String> displayedSchools = [];
+  List<String> newDisplayedBanks = [];
+  late StreamController<bool>? _updateStreamController;
+  late TextEditingController textController;
+
   @override
   void initState() {
     super.initState();
+    textController = TextEditingController();
     setupSchoolBox();
-    textController.clear();
+  }
+
+  @override
+  void dispose() {
+    _updateStreamController?.close();
+    super.dispose();
   }
 
   Future<void> setupSchoolBox() async {
     schoolBox = await Hive.openBox<SchoolDB>('schoolBox');
 
-    if (!schoolBox.isOpen) {
-      print('schoolBox is not open');
-      return;
-    }
+    // Initialize displayedSchools with the initial values from Hive
+    displayedSchools = schoolBox.values.map((schools) => schools.name).toList();
 
-    List<int> keys = schoolBox.keys.cast<int>().toList();
+    // Add a listener to update the displayed schoolss when data changes in Hive
+    schoolBox.listenable().addListener(() {
+      if (mounted) {
+        setState(() {
+          displayedSchools = schoolBox.values.map((schools) => schools.name).toList();
+        });
+      }
+    });
 
-    print('All keys in schoolBox: $keys');
+    // Listen to changes from the SearchSchoolBloc
+    // ignore: use_build_context_synchronously
+    BlocProvider.of<SearchSchoolBloc>(context).stream.listen((state) {
+      if (state.school.data!.data!.isNotEmpty) {
+        if (mounted) {
+          setState(() {
+            schoolBox;
+            displayedSchools;
+          });
+        }
+      }
+    });
 
-    if (keys.isEmpty) {
-      print('No Schools found in schoolBox');
-      return;
-    }
-
-    schoolNames = keys.map((key) {
-      SchoolDB school = schoolBox.get(key)!;
-      return school.name;
-    }).toList();
-
-    print('Schools names: $schoolNames');
-
-    if (mounted) {
-      setState(() {});
-    }
+    // Fetch initial data
+    // BlocProvider.of<SearchSchoolBloc>(context).add(GetBankList(schoolsQuery: ""));
   }
 
-  final List<String> emptyList = [];
-  final TextEditingController textController = TextEditingController();
-
   void _showModal(context) {
+    StreamSubscription<bool>? subscription;
+
     showModalBottomSheet(
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -74,6 +91,9 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
       ),
       context: context,
       builder: (context) {
+        // Create a new StreamController instance
+        _updateStreamController = StreamController<bool>();
+
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
             return DraggableScrollableSheet(
@@ -109,7 +129,7 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
                               Icons.close,
                               color: kredColor,
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -125,10 +145,11 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
                         children: [
                           Expanded(
                             child: TextField(
-                              onChanged: (textController) {
+                              onChanged: (searchTerm) {
+                                _searchFromHive(searchTerm);
                                 BlocProvider.of<SearchSchoolBloc>(context).add(
                                     SearchSchoolEvent.getSchool(
-                                        schoolQuery: textController));
+                                        schoolQuery: searchTerm));
                               },
                               style: kCardContentStyle,
                               controller: textController,
@@ -143,17 +164,17 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
                                 suffixIcon: Padding(
                                   padding: const EdgeInsets.only(right: 20),
                                   child: IconButton(
-                                    icon: const Icon(FontAwesomeIcons.eraser,
-                                        size: 24,
-                                        color:
-                                            Color.fromARGB(255, 140, 138, 138)),
+                                    icon: const Icon(
+                                      FontAwesomeIcons.eraser,
+                                      size: 24,
+                                      color: Color.fromARGB(255, 140, 138, 138),
+                                    ),
                                     color: const Color(0xFF1F91E7),
                                     onPressed: () {
-                                      setState(
-                                        () {
-                                          textController.clear();
-                                        },
-                                      );
+                                      setState(() {
+                                        textController.clear();
+                                        _searchFromHive('');
+                                      });
                                     },
                                   ),
                                 ),
@@ -163,86 +184,61 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
                         ],
                       ),
                     ),
-                    BlocBuilder<SearchSchoolBloc, SearchSchoolState>(
-                      builder: (context, state) {
-                        if (state.isLoading) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        } else if (state.isError) {
-                          return const Center(
-                            child: Text('Error fetching data'),
-                          );
-                        } else {
-                          return Expanded(
-                            child: ListView.separated(
-                              controller: scrollController,
-                              itemCount: textController.text.isEmpty
-                                  ? schoolBox.length
-                                  : state.school.data!.data!.length ??
-                                      emptyList.length,
-                              separatorBuilder: (context, index) {
-                                return const Divider();
-                              },
-                              itemBuilder: (context, index) {
-                                return InkWell(
-                                  child: (state.school.data != null &&
-                                          state.school.data!.data!.isNotEmpty)
-                                      ? showBottomSheetData(
-                                          index, state.school.data!.data!)
-                                      : showBottomSheetData(index, emptyList),
-                                  onTap: () {
-                                    if (state.school != null) {
-                                      final schoolData =
-                                          state.school!.data!.data ?? [];
-                                      if (schoolData.isNotEmpty &&
-                                          index < schoolData.length) {
-                                        setState(() {
-                                          WidgetsBinding.instance!
-                                              .addPostFrameCallback((_) {
-                                            textController.text =
-                                                schoolData[index].name ?? '';
-                                          });
-                                        });
-                                        BlocProvider.of<SelectedSchoolBloc>(
-                                                context)
-                                            .add(
-                                          SelectedSchoolEvent.selectedSchool(
+                    StreamBuilder<bool>(
+                      stream: _updateStreamController?.stream,
+                      builder: (context, snapshot) {
+                        return Expanded(
+                          child: ListView.separated(
+                            controller: scrollController,
+                            itemCount: displayedSchools.length,
+                            itemBuilder: (context, index) {
+                              return InkWell(
+                                child: showBottomSheetData(
+                                    index, displayedSchools),
+                                onTap: () {
+                                  if (newDisplayedBanks.isNotEmpty &&
+                                      index < newDisplayedBanks.length) {
+                                    final selectedBankName =
+                                        newDisplayedBanks[index];
+                                    final selectedBankObject = schoolBox.values
+                                        .firstWhere((schools) =>
+                                            schools.name == selectedBankName);
+
+                                    textController.text =
+                                        selectedBankObject.name;
+
+                                    BlocProvider.of<SelectedSchoolBloc>(context)
+                                        .add(SelectedSchoolEvent.selectedSchool(
                                             selectedSchool:
-                                                schoolData[index].id as int,
-                                          ),
-                                        );
-                                        Navigator.of(context).pop();
-                                      } else if (schoolNames.isNotEmpty &&
-                                          index < schoolNames.length) {
-                                        setState(() {
-                                          WidgetsBinding.instance!
-                                              .addPostFrameCallback((_) {
-                                            textController.text =
-                                                schoolNames[index] ?? '';
-                                          });
-                                        });
-                                        BlocProvider.of<SelectedSchoolBloc>(
-                                                context)
-                                            .add(SelectedSchoolEvent
-                                                .selectedSchool(
-                                                    selectedSchool: schoolBox
-                                                        .getAt(index)!
-                                                        .id));
-                                        Navigator.of(context).pop();
-                                      }
-                                      // Additional logic if needed
-                                      print(
-                                          'Selected item in bottom sheet: $index');
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                          );
-                        }
+                                                selectedBankObject.id));
+                                  } else if (index < displayedSchools.length) {
+                                    final selectedBankName =
+                                        displayedSchools[index];
+                                    final selectedBankObject = schoolBox.values
+                                        .firstWhere((schools) =>
+                                            schools.name == selectedBankName);
+
+                                    textController.text =
+                                        selectedBankObject.name;
+
+                                    BlocProvider.of<SelectedSchoolBloc>(context)
+                                        .add(
+                                    
+                                      SelectedSchoolEvent.selectedSchool(selectedSchool: selectedBankObject.id)
+                                    );
+                                  }
+
+                                  Navigator.of(context).pop();
+                                },
+                              );
+                            },
+                            separatorBuilder: (context, index) {
+                              return const Divider();
+                            },
+                          ),
+                        );
                       },
-                    )
+                    ),
                   ],
                 );
               },
@@ -251,15 +247,41 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
         );
       },
     );
+
+    // Dispose the subscription when the modal is closed
+    Navigator.of(context).popUntil((route) {
+      subscription?.cancel();
+      return true;
+    });
   }
 
-  Widget showBottomSheetData(int index, List data) {
+  void _searchFromHive(String searchTerm) {
+    if (mounted) {
+      _updateDisplayedBanks(searchTerm);
+    }
+  }
+
+  void _updateDisplayedBanks(String searchTerm) {
+    final List<String> updatedDisplayedBanks = schoolBox.values
+        .where((schools) =>
+            schools.name.toLowerCase().contains(searchTerm.toLowerCase()))
+        .map((schools) => schools.name)
+        .toList();
+
+    if (!listEquals(displayedSchools, updatedDisplayedBanks)) {
+      // Only update the state if there are changes
+      _updateStreamController?.add(true);
+      setState(() {
+        displayedSchools = updatedDisplayedBanks;
+        newDisplayedBanks =
+            updatedDisplayedBanks; // Update newDisplayedBanks as well
+      });
+    }
+  }
+
+  Widget showBottomSheetData(int index, List<String> data) {
     final isFirstItem = index == 0;
     final isLastItem = index == data.length - 1;
-
-    final selectedschoolName = textController.text.isEmpty
-        ? schoolNames[index]
-        : (data.isNotEmpty ? data[index].name : '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -275,7 +297,7 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
         Container(
           margin: const EdgeInsets.only(top: 12, bottom: 10, left: 14),
           child: Text(
-            selectedschoolName,
+            data[index],
             style: const TextStyle(
               color: Color.fromARGB(255, 84, 84, 84),
               fontSize: 14,
@@ -295,21 +317,8 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
     );
   }
 
-  List<String> _buildSearchList(String userSearchTerm) {
-    List<String> searchList = [];
-
-    for (int i = 0; i < emptyList.length; i++) {
-      String name = emptyList[i];
-      if (name.toLowerCase().contains(userSearchTerm.toLowerCase())) {
-        searchList.add(emptyList[i]);
-      }
-    }
-    return searchList;
-  }
-
   @override
   Widget build(BuildContext context) {
-    // ignore: non_constant_identifier_names
     final Devicewidth = MediaQuery.of(context).size.width;
     return Center(
       child: BlocBuilder<SelectedSchoolBloc, SelectedSchoolState>(
@@ -338,8 +347,6 @@ class _schoolBottomSheetState extends State<schoolBottomSheet> {
                         controller: textController,
                         onTap: () async {
                           _showModal(context);
-
-                          WidgetsBinding.instance!.addPostFrameCallback((_) {});
                         },
                         decoration: const InputDecoration(
                           border: InputBorder.none,

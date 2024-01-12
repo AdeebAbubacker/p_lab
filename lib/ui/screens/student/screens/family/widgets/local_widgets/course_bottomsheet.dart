@@ -1,20 +1,20 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:panakj_app/core/colors/colors.dart';
 import 'package:panakj_app/core/constant/constants.dart';
 import 'package:panakj_app/core/db/adapters/course_adapter/course_adapter.dart';
 import 'package:panakj_app/ui/view_model/search_courses/courses_bloc.dart';
-
-import 'dart:async';
 import 'package:panakj_app/ui/view_model/selected_course/selected_course_bloc.dart';
 
 class CoursebottomSheet extends StatefulWidget {
   final bottomSheetheight;
   final String title;
   final hintText;
-  List<String> listofData = [];
+
   CoursebottomSheet({
     Key? key,
     required this.title,
@@ -29,49 +29,62 @@ class CoursebottomSheet extends StatefulWidget {
 class _CoursebottomSheetState extends State<CoursebottomSheet> {
   late Box<CourseDB> courseBox;
   List<String> courseNames = [];
-  List<String> searchResults = [];
+  List<String> displayedCourses = [];
+  List<String> newDisplayedCourses = [];
+  late StreamController<bool>? _updateStreamController;
+  late TextEditingController textController;
 
   @override
   void initState() {
     super.initState();
-    setupcourseBox();
-    textController.clear();
+    textController = TextEditingController();
+    setupCourseBox();
   }
 
-  Future<void> setupcourseBox() async {
-    courseBox = await Hive.openBox<CourseDB>('courseBox');
+  @override
+  void dispose() {
+    _updateStreamController?.close();
+    super.dispose();
+  }
 
-    if (!courseBox.isOpen) {
-      print('courseBox is not open');
-      return;
-    }
 
-    List<int> keys = courseBox.keys.cast<int>().toList();
 
-    print('All keys in courseBox: $keys');
+  Future<void> setupCourseBox() async {
+  courseBox = await Hive.openBox<CourseDB>('courseBox');
 
-    if (keys.isEmpty) {
-      print('No courses found in courseBox');
-      return;
-    }
+  // Initialize displayedCourses with the initial values from Hive
+  displayedCourses = courseBox.values.map((course) => course.name).toList();
 
-    courseNames = keys.map((key) {
-      CourseDB course = courseBox.get(key)!;
-      return course.name;
-    }).toList();
-
-    print('Course names: $courseNames');
-
+  // Add a listener to update the displayed courses when data changes in Hive
+  courseBox.listenable().addListener(() {
     if (mounted) {
-      setState(() {});
+      setState(() {
+        displayedCourses = courseBox.values.map((course) => course.name).toList();
+      });
     }
-  }
+  });
 
-  final List<String> emptyList = [];
-  final TextEditingController textController = TextEditingController();
-  bool shouldClearTextController = false;
+  // Listen to changes from the GetBankBloc
+  // ignore: use_build_context_synchronously
+  BlocProvider.of<CoursesBloc>(context).stream.listen((state) {
+    if (state.course.data!.isNotEmpty) {
+      if (mounted) {
+        setState(() {
+          courseBox;
+          displayedCourses;
+        });
+      }
+    }
+  });
+
+  // Fetch initial data
+  // BlocProvider.of<GetBankBloc>(context).add(GetBankList(courseQuery: ""));
+}
+
 
   void _showModal(context) {
+    StreamSubscription<bool>? subscription;
+
     showModalBottomSheet(
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -79,6 +92,9 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
       ),
       context: context,
       builder: (context) {
+        // Create a new StreamController instance
+        _updateStreamController = StreamController<bool>();
+
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
             return DraggableScrollableSheet(
@@ -114,7 +130,7 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
                               Icons.close,
                               color: kredColor,
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -130,11 +146,12 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
                         children: [
                           Expanded(
                             child: TextField(
-                              onChanged: (textController) {
+                              onChanged: (searchTerm) {
+                                _searchFromHive(searchTerm);
                                 BlocProvider.of<CoursesBloc>(context).add(
-                                  CoursesEvent.getCourses(
-                                      movieQuery: textController),
-                                );
+                                    
+                                    CoursesEvent.getCourses(movieQuery: searchTerm)
+                                        );
                               },
                               style: kCardContentStyle,
                               controller: textController,
@@ -156,18 +173,10 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
                                     ),
                                     color: const Color(0xFF1F91E7),
                                     onPressed: () {
-                                      textController.clear();
-
-                                      // Use the stored search results when clearing the search
                                       setState(() {
-                                        searchResults.clear();
+                                        textController.clear();
+                                        _searchFromHive('');
                                       });
-
-                                      // Trigger a new search event with an empty query
-                                      BlocProvider.of<CoursesBloc>(context).add(
-                                        CoursesEvent.getCourses(
-                                      movieQuery: ''),
-                                      );
                                     },
                                   ),
                                 ),
@@ -177,93 +186,62 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
                         ],
                       ),
                     ),
-                    BlocBuilder<CoursesBloc, CoursesState>(
-                      builder: (context, state) {
-                        if (state.isLoading) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        } else if (state.isError) {
-                          return const Center(
-                            child: Text('Error fetching data'),
-                          );
-                        } else {
-                          return Expanded(
-                            child: ListView.separated(
-                              controller: scrollController,
-                              // when textcontroller is empty we look for items in hive , else we take data from api
-                              itemCount: textController.text.isEmpty
-                                  ? courseBox.length
-                                  : (state.course.data != null &&
-                                          state.course.data!.isNotEmpty)
-                                      ? state.course.data!.length
-                                      : 0,
-                              separatorBuilder: (context, index) {
-                                return const Divider();
-                              },
-                              itemBuilder: (context, index) {
-                                return InkWell(
-                                  child: showBottomSheetData(
-                                      index, state.course.data ?? emptyList),
-                                  onTap: () {
-                                    if (state.course != null) {
-                                      final courseData = state.course!.data ?? [];
-                                      if (courseData.isNotEmpty &&
-                                          index < courseData.length) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.text =
-                                                courseData[index].name ?? '';
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                        BlocProvider.of<SelectedCourseBloc>(
-                                                context)
-                                            .add(
-                                              SelectedCourseEvent.selectedCourse(selectedCourse:   courseData[index].id as int,)
-                                         
-                                        );
-                                      } else if (courseNames.isNotEmpty &&
-                                          index < courseNames.length) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.text =
-                                                courseNames[index] ?? '';
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                        BlocProvider.of<SelectedCourseBloc>(
-                                                context)
-                                            .add(
-                                              SelectedCourseEvent.selectedCourse(selectedCourse: courseBox.getAt(index)!.id, )
-                                          
-                                        );
-                                      }
+                    StreamBuilder<bool>(
+                      stream: _updateStreamController?.stream,
+                      builder: (context, snapshot) {
+                        return Expanded(
+                          child: ListView.separated(
+                            controller: scrollController,
+                            itemCount: displayedCourses.length,
+                            itemBuilder: (context, index) {
+                              return InkWell(
+                                child:
+                                    showBottomSheetData(index, displayedCourses),
+                                onTap: () {
+                                  if (newDisplayedCourses.isNotEmpty &&
+                                      index < newDisplayedCourses.length) {
+                                    final selectedBankName =
+                                        newDisplayedCourses[index];
+                                    final selectedBankObject = courseBox.values
+                                        .firstWhere((course) =>
+                                            course.name == selectedBankName);
 
-                                      // Additional logic if needed
-                                      print(
-                                          'Selected item in bottom sheet: $index');
+                                    textController.text =
+                                        selectedBankObject.name;
 
-                                      // Clear the textController only if it was a search result
-                                      if (shouldClearTextController) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.clear();
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                      }
+                                    BlocProvider.of<SelectedCourseBloc>(context)
+                                        .add(
+                                   
+                                      SelectedCourseEvent.selectedCourse(selectedCourse: selectedBankObject.id)
+                                    );
+                                  } else if (index < displayedCourses.length) {
+                                    final selectedBankName =
+                                        displayedCourses[index];
+                                    final selectedBankObject = courseBox.values
+                                        .firstWhere((course) =>
+                                            course.name == selectedBankName);
 
-                                      Navigator.of(context).pop();
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                          );
-                        }
+                                    textController.text =
+                                        selectedBankObject.name;
+
+                                    BlocProvider.of<SelectedCourseBloc>(context)
+                                        .add(
+                                   
+                                      SelectedCourseEvent.selectedCourse(selectedCourse: selectedBankObject.id)
+                                    );
+                                  }
+
+                                  Navigator.of(context).pop();
+                                },
+                              );
+                            },
+                            separatorBuilder: (context, index) {
+                              return const Divider();
+                            },
+                          ),
+                        );
                       },
-                    )
+                    ),
                   ],
                 );
               },
@@ -272,14 +250,41 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
         );
       },
     );
+
+    // Dispose the subscription when the modal is closed
+    Navigator.of(context).popUntil((route) {
+      subscription?.cancel();
+      return true;
+    });
   }
 
-  Widget showBottomSheetData(int index, List data) {
+  void _searchFromHive(String searchTerm) {
+    if (mounted) {
+      _updateDisplayedBanks(searchTerm);
+    }
+  }
+
+  void _updateDisplayedBanks(String searchTerm) {
+    final List<String> updatedDisplayedBanks = courseBox.values
+        .where((course) =>
+            course.name.toLowerCase().contains(searchTerm.toLowerCase()))
+        .map((course) => course.name)
+        .toList();
+
+    if (!listEquals(displayedCourses, updatedDisplayedBanks)) {
+      // Only update the state if there are changes
+      _updateStreamController?.add(true);
+      setState(() {
+        displayedCourses = updatedDisplayedBanks;
+        newDisplayedCourses =
+            updatedDisplayedBanks; // Update newDisplayedCourses as well
+      });
+    }
+  }
+
+  Widget showBottomSheetData(int index, List<String> data) {
     final isFirstItem = index == 0;
     final isLastItem = index == data.length - 1;
-    final selectedCourseName = textController.text.isEmpty
-        ? courseNames[index]
-        : (data.isNotEmpty ? data[index].name : '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -295,7 +300,7 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
         Container(
           margin: const EdgeInsets.only(top: 12, bottom: 10, left: 14),
           child: Text(
-            selectedCourseName,
+            data[index],
             style: const TextStyle(
               color: Color.fromARGB(255, 84, 84, 84),
               fontSize: 14,
@@ -313,18 +318,6 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
           ),
       ],
     );
-  }
-
-  List<String> _buildSearchList(String userSearchTerm) {
-    searchResults = [];
-
-    for (int i = 0; i < emptyList.length; i++) {
-      String name = emptyList[i];
-      if (name.toLowerCase().contains(userSearchTerm.toLowerCase())) {
-        searchResults.add(emptyList[i]);
-      }
-    }
-    return searchResults;
   }
 
   @override
@@ -357,7 +350,6 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
                         controller: textController,
                         onTap: () async {
                           _showModal(context);
-                          WidgetsBinding.instance!.addPostFrameCallback((_) {});
                         },
                         decoration: const InputDecoration(
                           border: InputBorder.none,
@@ -371,8 +363,8 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
                     onTap: () async {
                       _showModal(context);
                     },
-                    child: Padding(
-                      padding: const EdgeInsets.all(1.0),
+                    child: const Padding(
+                      padding: EdgeInsets.all(1.0),
                       child: SizedBox(
                         width: 370,
                         height: 48,
@@ -388,3 +380,5 @@ class _CoursebottomSheetState extends State<CoursebottomSheet> {
     );
   }
 }
+
+

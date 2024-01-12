@@ -74,10 +74,9 @@ class _FamilyCardState extends State<FamilyCard> {
           const CheckBoxData1(),
           const HeightSpacer(height: 14),
           InputLabel(mytext: 'Occupation / Job'),
-       OccupationBottomSheet(title: 'Occupation Details'),
-          // labelBottomSheet(
-          //     title: 'Occupation Details',
-          //     hintText: 'Search For Occupation / Job'),
+          OccupationBottomSheet(
+              title: 'Occupation Details',
+              hintText: 'Search For Occupation / Job'),
           const HeightSpacer(height: 14),
           LabelNumericalText(
               numericalfocusnode: widget.fathericomefocusnode,
@@ -97,7 +96,7 @@ class _FamilyCardState extends State<FamilyCard> {
           const CheckBoxData2(),
           const HeightSpacer(height: 14),
           InputLabel(mytext: 'Occupation / Job'),
-          labelBottomSheet(
+          OccupationBottomSheet(
               title: 'Occupation Details',
               hintText: 'Search For Occupation / Job'),
           const HeightSpacer(height: 14),
@@ -119,7 +118,7 @@ class _FamilyCardState extends State<FamilyCard> {
           const CheckBoxData3(),
           const HeightSpacer(height: 14),
           InputLabel(mytext: 'Occupation / Job'),
-          labelBottomSheet(
+          OccupationBottomSheet(
               title: 'Occupation Details',
               hintText: 'Search For Occupation / Job'),
           const HeightSpacer(height: 14),

@@ -1,22 +1,20 @@
+import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:font_awesome_flutter/font_awesome_flutter.dart';
 import 'package:panakj_app/core/colors/colors.dart';
 import 'package:panakj_app/core/constant/constants.dart';
-
 import 'package:panakj_app/core/db/adapters/occupation_adapter/occupation_adapter.dart';
-import 'package:panakj_app/ui/view_model/search_courses/courses_bloc.dart';
-
 import 'package:panakj_app/ui/view_model/search_occupation/search_occupation_bloc.dart';
-
 import 'package:panakj_app/ui/view_model/selected_occupation/selected_occupation_bloc.dart';
 
 class OccupationBottomSheet extends StatefulWidget {
   final bottomSheetheight;
   final String title;
   final hintText;
-  List<String> listofData = [];
+
   OccupationBottomSheet({
     Key? key,
     required this.title,
@@ -31,49 +29,65 @@ class OccupationBottomSheet extends StatefulWidget {
 class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
   late Box<OccupationDB> occupationBox;
   List<String> occupationNames = [];
-  List<String> searchResults = [];
+  List<String> displayedOccupations = [];
+  List<String> newDisplayedOccupation = [];
+  late StreamController<bool>? _updateStreamController;
+  late TextEditingController textController;
 
   @override
   void initState() {
     super.initState();
-    setupoccupationBox();
-    textController.clear();
+    textController = TextEditingController();
+    setupOccupationBox();
   }
 
-  Future<void> setupoccupationBox() async {
+  @override
+  void dispose() {
+    _updateStreamController?.close();
+    super.dispose();
+  }
+
+  Future<void> setupOccupationBox() async {
     occupationBox = await Hive.openBox<OccupationDB>('occupationBox');
 
-    if (!occupationBox.isOpen) {
-      print('occupationBox is not open');
-      return;
-    }
+    // Initialize displayedOccupations with the initial values from Hive
+    displayedOccupations =
+        occupationBox.values.map((occupation) => occupation.name).toList();
 
-    List<int> keys = occupationBox.keys.cast<int>().toList();
+    // Add a listener to update the displayed occupations when data changes in Hive
+    occupationBox.listenable().addListener(() {
+      if (mounted) {
+        setState(() {
+          displayedOccupations = occupationBox.values
+              .map((occupation) => occupation.name)
+              .toList();
+        });
+      }
+    });
 
-    print('All keys in occupationBox: $keys');
+    // Listen to changes from the SearchOccupationBloc
+    // ignore: use_build_context_synchronously
 
-    if (keys.isEmpty) {
-      print('No occupations found in occupationBox');
-      return;
-    }
-
-    occupationNames = keys.map((key) {
-      OccupationDB occupation = occupationBox.get(key)!;
-      return occupation.name;
-    }).toList();
-
-    print('occupation names: $occupationNames');
-
+BlocProvider.of<SearchOccupationBloc>(context).stream.listen((state) {
+  if (state.occupation != null && state.occupation.data != null && state.occupation.data!.isNotEmpty) {
     if (mounted) {
-      setState(() {});
+      setState(() {
+        occupationBox; // This line doesn't have any effect
+        displayedOccupations; // This line doesn't have any effect
+      });
     }
   }
+});
 
-  final List<String> emptyList = [];
-  final TextEditingController textController = TextEditingController();
-  bool shouldClearTextController = false;
+
+
+    // Fetch initial data
+   BlocProvider.of<SearchOccupationBloc>(context).add(SearchOccupationEvent.searchOccupationList(searchQuery: ""));
+  }
 
   void _showModal(context) {
+    StreamSubscription<bool>? subscription;
+
     showModalBottomSheet(
       isScrollControlled: true,
       shape: const RoundedRectangleBorder(
@@ -81,6 +95,9 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
       ),
       context: context,
       builder: (context) {
+        // Create a new StreamController instance
+        _updateStreamController = StreamController<bool>();
+
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
             return DraggableScrollableSheet(
@@ -116,7 +133,7 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
                               Icons.close,
                               color: kredColor,
                             ),
-                          )
+                          ),
                         ],
                       ),
                     ),
@@ -132,12 +149,12 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
                         children: [
                           Expanded(
                             child: TextField(
-                              onChanged: (textController) {
+                              onChanged: (searchTerm) {
+                                _searchFromHive(searchTerm);
                                 BlocProvider.of<SearchOccupationBloc>(context)
-                                    .add(
-                                  SearchOccupationEvent.searchOccupationList(
-                                      searchQuery: textController),
-                                );
+                                    .add(SearchOccupationEvent
+                                        .searchOccupationList(
+                                            searchQuery: searchTerm));
                               },
                               style: kCardContentStyle,
                               controller: textController,
@@ -159,21 +176,10 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
                                     ),
                                     color: const Color(0xFF1F91E7),
                                     onPressed: () {
-                                      textController.clear();
-
-                                      // Use the stored search results when clearing the search
                                       setState(() {
-                                        searchResults.clear();
+                                        textController.clear();
+                                        _searchFromHive('');
                                       });
-
-                                      // Trigger a new search event with an empty query
-                                      BlocProvider.of<SearchOccupationBloc>(
-                                              context)
-                                          .add(
-                                        const SearchOccupationEvent
-                                            .searchOccupationList(
-                                                searchQuery: ''),
-                                      );
                                     },
                                   ),
                                 ),
@@ -183,95 +189,65 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
                         ],
                       ),
                     ),
-                    BlocBuilder<SearchOccupationBloc, SearchOccupationState>(
-                      builder: (context, state) {
-                        if (state.isLoading) {
-                          return const Center(
-                            child: CircularProgressIndicator(),
-                          );
-                        } else if (state.isError) {
-                          return const Center(
-                            child: Text('Error fetching data'),
-                          );
-                        } else {
-                          return Expanded(
-                            child: ListView.separated(
-                              controller: scrollController,
-                              // when textcontroller is empty we look for items in hive , else we take data from api
-                              itemCount: textController.text.isEmpty
-                                  ? occupationBox.length
-                                  : (state.occupation.data != null &&
-                                          state.occupation.data!.isNotEmpty)
-                                      ? state.occupation.data!.length
-                                      : 0,
-                              separatorBuilder: (context, index) {
-                                return const Divider();
-                              },
-                              itemBuilder: (context, index) {
-                                return InkWell(
-                                  child: showBottomSheetData(index,
-                                      state.occupation.data ?? emptyList),
-                                  onTap: () {
-                                    if (state.occupation != null) {
-                                      final occupationData =
-                                          state.occupation!.data ?? [];
-                                      if (occupationData.isNotEmpty &&
-                                          index < occupationData.length) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.text =
-                                                occupationData[index].name ??
-                                                    '';
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                        BlocProvider.of<SelectedOccupationBloc>(
-                                                context)
-                                            .add(SelectedOccupationEvent
-                                                .selectedOccupation(
-                                          selectedOccupation:
-                                              occupationData[index].id as int,
-                                        ));
-                                      } else if (occupationNames.isNotEmpty &&
-                                          index < occupationNames.length) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.text =
-                                                occupationNames[index] ?? '';
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                        BlocProvider.of<SelectedOccupationBloc>(
-                                                context)
-                                            .add(SelectedOccupationEvent
-                                                .selectedOccupation(
-                                          selectedOccupation:
-                                              occupationBox.getAt(index)!.id,
-                                        ));
-                                      }
+                    StreamBuilder<bool>(
+                      stream: _updateStreamController?.stream,
+                      builder: (context, snapshot) {
+                        return Expanded(
+                          child: ListView.separated(
+                            controller: scrollController,
+                            itemCount: displayedOccupations.length,
+                            itemBuilder: (context, index) {
+                              return InkWell(
+                                child: showBottomSheetData(
+                                    index, displayedOccupations),
+                                onTap: () {
+                                  if (newDisplayedOccupation.isNotEmpty &&
+                                      index < newDisplayedOccupation.length) {
+                                    final selectedBankName =
+                                        newDisplayedOccupation[index];
+                                    final selectedBankObject = occupationBox
+                                        .values
+                                        .firstWhere((occupation) =>
+                                            occupation.name ==
+                                            selectedBankName);
 
-                                      // Additional logic if needed
-                                      print(
-                                          'Selected item in bottom sheet: $index');
+                                    textController.text =
+                                        selectedBankObject.name;
 
-                                      // Clear the textController only if it was a search result
-                                      if (shouldClearTextController) {
-                                        Future.delayed(Duration.zero, () {
-                                          setState(() {
-                                            textController.clear();
-                                            shouldClearTextController = false;
-                                          });
-                                        });
-                                      }
+                                    BlocProvider.of<SelectedOccupationBloc>(
+                                            context)
+                                        .add(
+                                      SelectedOccupationEvent.selectedOccupation(selectedOccupation: selectedBankObject.id)
+                                    );
+                                  } else if (index <
+                                      displayedOccupations.length) {
+                                    final selectedBankName =
+                                        displayedOccupations[index];
+                                    final selectedBankObject = occupationBox
+                                        .values
+                                        .firstWhere((occupation) =>
+                                            occupation.name ==
+                                            selectedBankName);
 
-                                      Navigator.of(context).pop();
-                                    }
-                                  },
-                                );
-                              },
-                            ),
-                          );
-                        }
+                                    textController.text =
+                                        selectedBankObject.name;
+
+                                    BlocProvider.of<SelectedOccupationBloc>(
+                                            context)
+                                        .add(
+                                      SelectedOccupationEvent.selectedOccupation(selectedOccupation: selectedBankObject.id)
+                                    );
+                                  }
+
+                                  Navigator.of(context).pop();
+                                },
+                              );
+                            },
+                            separatorBuilder: (context, index) {
+                              return const Divider();
+                            },
+                          ),
+                        );
                       },
                     ),
                   ],
@@ -282,14 +258,41 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
         );
       },
     );
+
+    // Dispose the subscription when the modal is closed
+    Navigator.of(context).popUntil((route) {
+      subscription?.cancel();
+      return true;
+    });
   }
 
-  Widget showBottomSheetData(int index, List data) {
+  void _searchFromHive(String searchTerm) {
+    if (mounted) {
+      _updateDisplayedBanks(searchTerm);
+    }
+  }
+
+  void _updateDisplayedBanks(String searchTerm) {
+    final List<String> updatedDisplayedBanks = occupationBox.values
+        .where((occupation) =>
+            occupation.name.toLowerCase().contains(searchTerm.toLowerCase()))
+        .map((occupation) => occupation.name)
+        .toList();
+
+    if (!listEquals(displayedOccupations, updatedDisplayedBanks)) {
+      // Only update the state if there are changes
+      _updateStreamController?.add(true);
+      setState(() {
+        displayedOccupations = updatedDisplayedBanks;
+        newDisplayedOccupation =
+            updatedDisplayedBanks; // Update newDisplayedOccupation as well
+      });
+    }
+  }
+
+  Widget showBottomSheetData(int index, List<String> data) {
     final isFirstItem = index == 0;
     final isLastItem = index == data.length - 1;
-    final selectedoccupationName = textController.text.isEmpty
-        ? occupationNames[index]
-        : (data.isNotEmpty ? data[index].name : '');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -305,7 +308,7 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
         Container(
           margin: const EdgeInsets.only(top: 12, bottom: 10, left: 14),
           child: Text(
-            selectedoccupationName,
+            data[index],
             style: const TextStyle(
               color: Color.fromARGB(255, 84, 84, 84),
               fontSize: 14,
@@ -323,18 +326,6 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
           ),
       ],
     );
-  }
-
-  List<String> _buildSearchList(String userSearchTerm) {
-    searchResults = [];
-
-    for (int i = 0; i < emptyList.length; i++) {
-      String name = emptyList[i];
-      if (name.toLowerCase().contains(userSearchTerm.toLowerCase())) {
-        searchResults.add(emptyList[i]);
-      }
-    }
-    return searchResults;
   }
 
   @override
@@ -367,7 +358,6 @@ class _OccupationBottomSheetState extends State<OccupationBottomSheet> {
                         controller: textController,
                         onTap: () async {
                           _showModal(context);
-                          WidgetsBinding.instance!.addPostFrameCallback((_) {});
                         },
                         decoration: const InputDecoration(
                           border: InputBorder.none,

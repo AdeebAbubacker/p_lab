@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
-import 'package:panakj_app/bank_bottomsheet_dup2.dart';
 import 'package:panakj_app/core/db/adapters/bank_adapter/bank_adapter.dart';
-import 'package:panakj_app/ui/screens/student/screens/info/widgets/bank_bottomsheet%20copy.dart';
+import 'package:panakj_app/ui/screens/student/screens/info/widgets/bank_bottomsheet.dart';
 import 'package:panakj_app/ui/screens/student/widgets/input_label.dart';
 import 'package:panakj_app/ui/screens/student/widgets/label_inputText.dart';
 import 'package:panakj_app/ui/screens/student/widgets/spacer_height.dart';
@@ -87,11 +86,7 @@ class _BankCardState extends State<BankCard> {
           ),
           const HeightSpacer(height: 14),
           InputLabel(mytext: 'Bank Name'),
-
-          // BankBottomSheetCopy(
-          //   title: 'Bank aaaaaaaaaaaa',
-          // ),
-          BankBottomSheetCopy2(
+          BankBottomSheet(
             title: 'ssss',
             hintText: '',
           ),

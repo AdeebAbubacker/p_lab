@@ -23,6 +23,10 @@ class GetDropdownValuesBloc
           dropDownValue: response,
           successorFailure: optionOf(right(response)),
         ));
+        print('from bloc dropdown occupations------------------------ ${response.data!.occupations!.length}');
+         print('from bloc dropdown banks------------------------ ${response.data!.banks!.length}');
+          print('from bloc dropdown schools------------------------ ${response.data!.schools!.length}');
+           print('from bloc dropdown courses------------------------ ${response.data!.courses!.length}');
         // ignore: avoid_print
       } catch (e) {
         emit(GetDropdownValuesState(

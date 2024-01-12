@@ -314,37 +314,42 @@ abstract class _SelectedCourse implements SelectedCourseEvent {
 
 /// @nodoc
 mixin _$SelectedCourseState {
+  int get selectedCourse => throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult when<TResult extends Object?>({
-    required TResult Function() initial,
+    required TResult Function(int selectedCourse) courseSelected,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
-    TResult? Function()? initial,
+    TResult? Function(int selectedCourse)? courseSelected,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
-    TResult Function()? initial,
+    TResult Function(int selectedCourse)? courseSelected,
     required TResult orElse(),
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult map<TResult extends Object?>({
-    required TResult Function(_Initial value) initial,
+    required TResult Function(_CourseSelected value) courseSelected,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
-    TResult? Function(_Initial value)? initial,
+    TResult? Function(_CourseSelected value)? courseSelected,
   }) =>
       throw _privateConstructorUsedError;
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
-    TResult Function(_Initial value)? initial,
+    TResult Function(_CourseSelected value)? courseSelected,
     required TResult orElse(),
   }) =>
+      throw _privateConstructorUsedError;
+
+  @JsonKey(ignore: true)
+  $SelectedCourseStateCopyWith<SelectedCourseState> get copyWith =>
       throw _privateConstructorUsedError;
 }
 
@@ -353,6 +358,8 @@ abstract class $SelectedCourseStateCopyWith<$Res> {
   factory $SelectedCourseStateCopyWith(
           SelectedCourseState value, $Res Function(SelectedCourseState) then) =
       _$SelectedCourseStateCopyWithImpl<$Res, SelectedCourseState>;
+  @useResult
+  $Res call({int selectedCourse});
 }
 
 /// @nodoc
@@ -364,67 +371,110 @@ class _$SelectedCourseStateCopyWithImpl<$Res, $Val extends SelectedCourseState>
   final $Val _value;
   // ignore: unused_field
   final $Res Function($Val) _then;
+
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? selectedCourse = null,
+  }) {
+    return _then(_value.copyWith(
+      selectedCourse: null == selectedCourse
+          ? _value.selectedCourse
+          : selectedCourse // ignore: cast_nullable_to_non_nullable
+              as int,
+    ) as $Val);
+  }
 }
 
 /// @nodoc
-abstract class _$$InitialImplCopyWith<$Res> {
-  factory _$$InitialImplCopyWith(
-          _$InitialImpl value, $Res Function(_$InitialImpl) then) =
-      __$$InitialImplCopyWithImpl<$Res>;
+abstract class _$$CourseSelectedImplCopyWith<$Res>
+    implements $SelectedCourseStateCopyWith<$Res> {
+  factory _$$CourseSelectedImplCopyWith(_$CourseSelectedImpl value,
+          $Res Function(_$CourseSelectedImpl) then) =
+      __$$CourseSelectedImplCopyWithImpl<$Res>;
+  @override
+  @useResult
+  $Res call({int selectedCourse});
 }
 
 /// @nodoc
-class __$$InitialImplCopyWithImpl<$Res>
-    extends _$SelectedCourseStateCopyWithImpl<$Res, _$InitialImpl>
-    implements _$$InitialImplCopyWith<$Res> {
-  __$$InitialImplCopyWithImpl(
-      _$InitialImpl _value, $Res Function(_$InitialImpl) _then)
+class __$$CourseSelectedImplCopyWithImpl<$Res>
+    extends _$SelectedCourseStateCopyWithImpl<$Res, _$CourseSelectedImpl>
+    implements _$$CourseSelectedImplCopyWith<$Res> {
+  __$$CourseSelectedImplCopyWithImpl(
+      _$CourseSelectedImpl _value, $Res Function(_$CourseSelectedImpl) _then)
       : super(_value, _then);
+
+  @pragma('vm:prefer-inline')
+  @override
+  $Res call({
+    Object? selectedCourse = null,
+  }) {
+    return _then(_$CourseSelectedImpl(
+      selectedCourse: null == selectedCourse
+          ? _value.selectedCourse
+          : selectedCourse // ignore: cast_nullable_to_non_nullable
+              as int,
+    ));
+  }
 }
 
 /// @nodoc
 
-class _$InitialImpl implements _Initial {
-  const _$InitialImpl();
+class _$CourseSelectedImpl implements _CourseSelected {
+  const _$CourseSelectedImpl({required this.selectedCourse});
+
+  @override
+  final int selectedCourse;
 
   @override
   String toString() {
-    return 'SelectedCourseState.initial()';
+    return 'SelectedCourseState.courseSelected(selectedCourse: $selectedCourse)';
   }
 
   @override
   bool operator ==(dynamic other) {
     return identical(this, other) ||
-        (other.runtimeType == runtimeType && other is _$InitialImpl);
+        (other.runtimeType == runtimeType &&
+            other is _$CourseSelectedImpl &&
+            (identical(other.selectedCourse, selectedCourse) ||
+                other.selectedCourse == selectedCourse));
   }
 
   @override
-  int get hashCode => runtimeType.hashCode;
+  int get hashCode => Object.hash(runtimeType, selectedCourse);
+
+  @JsonKey(ignore: true)
+  @override
+  @pragma('vm:prefer-inline')
+  _$$CourseSelectedImplCopyWith<_$CourseSelectedImpl> get copyWith =>
+      __$$CourseSelectedImplCopyWithImpl<_$CourseSelectedImpl>(
+          this, _$identity);
 
   @override
   @optionalTypeArgs
   TResult when<TResult extends Object?>({
-    required TResult Function() initial,
+    required TResult Function(int selectedCourse) courseSelected,
   }) {
-    return initial();
+    return courseSelected(selectedCourse);
   }
 
   @override
   @optionalTypeArgs
   TResult? whenOrNull<TResult extends Object?>({
-    TResult? Function()? initial,
+    TResult? Function(int selectedCourse)? courseSelected,
   }) {
-    return initial?.call();
+    return courseSelected?.call(selectedCourse);
   }
 
   @override
   @optionalTypeArgs
   TResult maybeWhen<TResult extends Object?>({
-    TResult Function()? initial,
+    TResult Function(int selectedCourse)? courseSelected,
     required TResult orElse(),
   }) {
-    if (initial != null) {
-      return initial();
+    if (courseSelected != null) {
+      return courseSelected(selectedCourse);
     }
     return orElse();
   }
@@ -432,32 +482,40 @@ class _$InitialImpl implements _Initial {
   @override
   @optionalTypeArgs
   TResult map<TResult extends Object?>({
-    required TResult Function(_Initial value) initial,
+    required TResult Function(_CourseSelected value) courseSelected,
   }) {
-    return initial(this);
+    return courseSelected(this);
   }
 
   @override
   @optionalTypeArgs
   TResult? mapOrNull<TResult extends Object?>({
-    TResult? Function(_Initial value)? initial,
+    TResult? Function(_CourseSelected value)? courseSelected,
   }) {
-    return initial?.call(this);
+    return courseSelected?.call(this);
   }
 
   @override
   @optionalTypeArgs
   TResult maybeMap<TResult extends Object?>({
-    TResult Function(_Initial value)? initial,
+    TResult Function(_CourseSelected value)? courseSelected,
     required TResult orElse(),
   }) {
-    if (initial != null) {
-      return initial(this);
+    if (courseSelected != null) {
+      return courseSelected(this);
     }
     return orElse();
   }
 }
 
-abstract class _Initial implements SelectedCourseState {
-  const factory _Initial() = _$InitialImpl;
+abstract class _CourseSelected implements SelectedCourseState {
+  const factory _CourseSelected({required final int selectedCourse}) =
+      _$CourseSelectedImpl;
+
+  @override
+  int get selectedCourse;
+  @override
+  @JsonKey(ignore: true)
+  _$$CourseSelectedImplCopyWith<_$CourseSelectedImpl> get copyWith =>
+      throw _privateConstructorUsedError;
 }

@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import 'package:panakj_app/core/constant/constants.dart';
 import 'package:panakj_app/core/db/adapters/course_adapter/course_adapter.dart';
 import 'package:panakj_app/ui/screens/student/screens/family/widgets/local_widgets/course_bottomsheet.dart';
+import 'package:panakj_app/ui/screens/student/screens/family/widgets/local_widgets/qualification_bottomsheet.dart';
 import 'package:panakj_app/ui/screens/student/widgets/horizontal_radiobtn.dart';
 import 'package:panakj_app/ui/screens/student/widgets/input_label.dart';
 import 'package:panakj_app/ui/screens/student/widgets/label_bottomSheet.dart';
@@ -98,21 +99,22 @@ class _SiblingsCardState extends State<SiblingsCard> {
                 title: 'Gender',
               ),
               InputLabel(mytext: 'Qualification'),
-              labelBottomSheet(
-                bottomSheetheight: 0.74,
-                title: 'Qualification',
-                hintText: 'Search For Occupation / Job',
-                listofData: const [
-                  'No Formal Education',
-                  'Below SSLC',
-                  'SSLC',
-                  'Plus Two',
-                  'Undergraduate',
-                  'Postgraduate',
-                  'M.Phil.',
-                  'Doctorate (Ph.D.)'
-                ],
-              ),
+              QualificationbottomSheet(title: 'title'),
+              // labelBottomSheet(
+              //   bottomSheetheight: 0.74,
+              //   title: 'Qualification',
+              //   hintText: 'Search For Occupation / Job',
+              //   listofData: const [
+              //     'No Formal Education',
+              //     'Below SSLC',
+              //     'SSLC',
+              //     'Plus Two',
+              //     'Undergraduate',
+              //     'Postgraduate',
+              //     'M.Phil.',
+              //     'Doctorate (Ph.D.)'
+              //   ],
+              // ),
               const HeightSpacer(),
               InputLabel(mytext: 'Course of Study'),
               CoursebottomSheet(

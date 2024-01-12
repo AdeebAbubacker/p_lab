@@ -5,6 +5,7 @@ import 'package:panakj_app/core/db/adapters/course_adapter/course_adapter.dart';
 import 'package:panakj_app/core/db/adapters/family_success_status/family_status_adapter.dart';
 import 'package:panakj_app/core/db/adapters/occupation_adapter/occupation_adapter.dart';
 import 'package:panakj_app/core/db/adapters/personal_info_adapter/personal_info_adapter.dart';
+import 'package:panakj_app/core/db/adapters/qualification_adapter/qualification_adapter.dart';
 import 'package:panakj_app/core/db/adapters/school_adapter/school_adapter.dart';
 import 'package:panakj_app/core/db/adapters/validation_academics/validation_academicadapter.dart';
 import 'package:panakj_app/core/db/adapters/validation_familyscreen/validation_familyscreenadapter.dart';
@@ -15,6 +16,7 @@ import 'package:panakj_app/core/db/boxes/course_box.dart';
 import 'package:panakj_app/core/db/boxes/family_status_box.dart';
 import 'package:panakj_app/core/db/boxes/occupation_box.dart';
 import 'package:panakj_app/core/db/boxes/personal_info_box.dart';
+import 'package:panakj_app/core/db/boxes/qualification_box.dart';
 import 'package:panakj_app/core/db/boxes/school_box.dart';
 import 'package:panakj_app/core/db/boxes/validation_academicBox.dart';
 import 'package:panakj_app/core/db/boxes/validation_familyBox.dart';
@@ -42,10 +44,12 @@ import 'package:panakj_app/ui/view_model/question3_res/question3_res_bloc.dart';
 import 'package:panakj_app/ui/view_model/search_bank/get_bank_bloc.dart';
 import 'package:panakj_app/ui/view_model/search_courses/courses_bloc.dart';
 import 'package:panakj_app/ui/view_model/search_occupation/search_occupation_bloc.dart';
+import 'package:panakj_app/ui/view_model/search_qualification/search_qualification_bloc.dart';
 import 'package:panakj_app/ui/view_model/search_school/search_school_bloc.dart';
 import 'package:panakj_app/ui/view_model/selctedbank/selctedbank_bloc.dart';
 import 'package:panakj_app/ui/view_model/selected_course/selected_course_bloc.dart';
 import 'package:panakj_app/ui/view_model/selected_occupation/selected_occupation_bloc.dart';
+import 'package:panakj_app/ui/view_model/selected_qualification/selected_qualification_bloc.dart';
 import 'package:panakj_app/ui/view_model/selected_school/selected_school_bloc.dart';
 import 'package:panakj_app/ui/view_model/students_app_form/students_app_form_bloc.dart';
 import 'package:hive_flutter/hive_flutter.dart';
@@ -60,6 +64,7 @@ void main() async {
   Hive.registerAdapter(personalInfoDBAdapter());
   Hive.registerAdapter(CourseDBAdapter());
   Hive.registerAdapter(SchoolDBAdapter());
+  Hive.registerAdapter(qualificationDBAdapter());
   Hive.registerAdapter(FamilyStatusDBAdapter());
   Hive.registerAdapter(OccupationDBAdapter());
   Hive.registerAdapter(ValidationPersonalInfoScreenDBAdapter());
@@ -73,6 +78,8 @@ void main() async {
   courseBox = await Hive.openBox<CourseDB>('courseBox');
   schoolBox = await Hive.openBox<SchoolDB>('schoolBox');
   occupationBox = await Hive.openBox<OccupationDB>('occupationBox');
+  qualificationBox = await Hive.openBox<qualificationDB>('qualificationBox');
+
   familystatusInfoBox =
       await Hive.openBox<FamilyStatusDB>('familystatusInfoBox');
   validationPersonalInfoBox =
@@ -136,6 +143,9 @@ class MyApp extends StatelessWidget {
           create: (context) => SearchSchoolBloc(),
         ),
         BlocProvider(
+          create: (context) => SearchQualificationBloc(),
+        ),
+        BlocProvider(
           create: (context) => GalleryBloc(),
         ),
         BlocProvider(
@@ -161,6 +171,9 @@ class MyApp extends StatelessWidget {
         ),
         BlocProvider(
           create: (context) => SelectedOccupationBloc(),
+        ),
+        BlocProvider(
+          create: (context) => SelectedQualificationBloc(),
         ),
         BlocProvider(
           create: (context) => PostResidentailDataBloc(),

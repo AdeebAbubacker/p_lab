@@ -1,6 +1,8 @@
 import 'package:hive/hive.dart';
  part 'occupation_adapter.g.dart';
 
+
+
 @HiveType(typeId: 7)
 class OccupationDB {
   @HiveField(0)
@@ -9,20 +11,24 @@ class OccupationDB {
   @HiveField(1)
   String name;
 
-  @HiveField(2)
-  dynamic deletedAt;
+    @HiveField(2)
+  int active;
+
+  @HiveField(3)
+  dynamic deleted_at;
 
   OccupationDB({
     required this.id,
-    required this.name,
-    required this.deletedAt,
+    required this.name, required this.active,
+    required this.deleted_at,
   });
 
   factory OccupationDB.fromJson(Map<String, dynamic> json) {
     return OccupationDB(
       id: json['id'],
       name: json['name'],
-      deletedAt: json['deleted_at'],
+      active: json['active'],
+      deleted_at: json['deleted_at'],
     );
   }
 
@@ -30,7 +36,8 @@ class OccupationDB {
     final Map<String, dynamic> data = <String, dynamic>{};
     data['id'] = id;
     data['name'] = name;
-    data['deleted_at'] = deletedAt;
+    data['active'] = active;
+    data['deleted_at'] = deleted_at;
     return data;
   }
 }
